@@ -24,10 +24,17 @@ namespace Matrix
       var factory = container.Resolve<IHttpClientFactory>();
       var client = container.Resolve<InvestCloudClient>();
 
-      var responseInit = await client.InitMatrix(3);
-      var getRow = await client.Numbers(DataSet.A, DataType.row, 0);
+      await CalculateMatrix(client);
       
     }
 
+    static async Task CalculateMatrix(IInvestCloudClient client)
+    {
+      var responseInit = await client.InitMatrix(3);
+
+      var start = DateTime.Now;
+
+      var getRow = await client.Numbers(DataSet.A, DataType.row, 0);
+    }
   }
 }

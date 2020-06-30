@@ -17,7 +17,7 @@ namespace Matrix
     const int arraySize = 1000;
     public static async Task Main(string[] args)
     {
-      
+
       var services = new ServiceCollection();
       services.AddHttpClient()
               .AddHttpClient<IInvestCloudClient, InvestCloudClient>()
@@ -35,20 +35,11 @@ namespace Matrix
 
     private static async Task<int[][]> GetDataFromServer(IInvestCloudClient client, int n, DataSet dataSet, DataType dataType)
     {
-      //var tasks = Partitioner.Create(0, n, batchSize).GetDynamicPartitions().AsParallel()
-      //  .SelectMany(x => Enumerable.Range(x.Item1, x.Item2 - x.Item1 + 1)
-      // .Select(index => client.Numbers(dataSet, dataType, index)
-      // ));
 
-      //int[][] result = null;
-      //await Task.WhenAll(tasks).ContinueWith(lines => result = lines.Result);
-      //return result;
+      var result = (int[][])Array.CreateInstance(typeof(int[]), n);
+      var ranges = Partitioner.Create(0, n - 1, batchSize).GetDynamicPartitions();
 
-      var result = (int[][])Array.CreateInstance(typeof(int[]), n); 
-
-      var ranges = Partitioner.Create(0, n-1, batchSize).GetDynamicPartitions(); 
-
-
+      //do in batch mode avoid network error
       foreach (var range in ranges)
       {
         var lines = Task.WhenAll(Enumerable.Range(range.Item1, range.Item2 - range.Item1 + 1)
@@ -60,23 +51,14 @@ namespace Matrix
       return result;
     }
 
-
     private static async Task<int[][]> GetARows(IInvestCloudClient client, int n)
     {
       return await GetDataFromServer(client, n, DataSet.A, DataType.row);
-      //int[][] result = null;
-      //var tasks = Enumerable.Range(0, n).Select(rowIndex => client.Numbers(DataSet.A, DataType.row, rowIndex));
-      //await Task.WhenAll(tasks).ContinueWith(rows => result = rows.Result);
-      //return result;
     }
 
     private static async Task<int[][]> GetBCols(IInvestCloudClient client, int n)
     {
       return await GetDataFromServer(client, n, DataSet.B, DataType.col);
-      //int[][] result = null;
-      //var tasks = Enumerable.Range(0, n).Select(colIndex => client.Numbers(DataSet.B, DataType.col, colIndex));
-      //await Task.WhenAll(tasks).ContinueWith(cols => result = cols.Result);
-      //return result;
     }
 
 
@@ -92,8 +74,6 @@ namespace Matrix
 
       var result = Init2DArray(n);
 
-     
-
       ParallelOptions optionOut = new ParallelOptions() { MaxDegreeOfParallelism = 40 };
       ParallelOptions optionIn = new ParallelOptions() { MaxDegreeOfParallelism = 40 };
 
@@ -107,7 +87,7 @@ namespace Matrix
 
       var endCalc = DateTime.Now;
       var timeTake = endCalc - start;
-      Console.WriteLine("Time take to calculate: {0}", timeTake);
+      Console.WriteLine(" >>> Time take to calculate: {0}", timeTake);
 
       string md5 = CalculateMd5(result);
 
@@ -156,7 +136,7 @@ namespace Matrix
     //create n X n array
     private static int[][] Init2DArray(int n)
     {
-      //create an nxn result array, value inside does not matter, will be replaced
+      //create an nXn result array, value inside does not matter, will be replaced
       var result = Enumerable.Range(0, n)
       .Select(x => Enumerable.Range(x * n, n).ToArray()).ToArray();
       return result;

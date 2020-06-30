@@ -72,12 +72,12 @@ namespace Matrix
     {
       if (!response.Success)
       {
-        Console.WriteLine($"Falied {idx}: {response.Cause}");
+        Console.WriteLine($"Falied get {idx}: {response.Cause}");
         throw new Exception(response.Cause);
       }
       else
       {
-        Console.WriteLine($"Succeed {idx}" );
+        //Console.WriteLine($"Acquired {idx}" );
       }
     }
 

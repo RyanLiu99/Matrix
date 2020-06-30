@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -15,11 +16,10 @@ namespace Matrix
     public InvestCloudClient(HttpClient client)
     {
       this.client = client;
-      client.BaseAddress = new Uri("https://recruitment-test.investcloud.com/");
-      client.DefaultRequestHeaders.Add("Accept", "application/json");
+      client.BaseAddress = new Uri("https://recruitment-test.investcloud.com/");        
     }
 
-    public async Task<InvestCloudResponse<int>> InitMatrix(int size)
+    public async Task<int> InitMatrix(int size)
     {
       var response = await this.client.GetAsync($"/api/numbers/init/{size}");
 
@@ -28,11 +28,12 @@ namespace Matrix
       using var responseStream = await response.Content.ReadAsStreamAsync();
       var result = await JsonSerializer.DeserializeAsync
           <InvestCloudResponse<int>>(responseStream);
-      return result;
-    }
 
-    
-    public async Task<InvestCloudResponse<int[]>> Numbers(DataSet dataSet, DataType dataType, int idx)
+      EnsureSuccess(result);
+      return result.Value;
+    }
+   
+    public async Task<int[]> Numbers(DataSet dataSet, DataType dataType, int idx)
     {
       var response = await this.client.GetAsync($"/api/numbers/{dataSet}/{dataType}/{idx}");
 
@@ -41,7 +42,33 @@ namespace Matrix
       using var responseStream = await response.Content.ReadAsStreamAsync();
       var result = await JsonSerializer.DeserializeAsync
           <InvestCloudResponse<int[]>>(responseStream);
-      return result;
+
+      EnsureSuccess(result);
+      return result.Value;
+    }
+
+    public async Task Validate(string md5)
+    {
+      var request = new HttpRequestMessage(HttpMethod.Post,
+          "https://recruitment-test.investcloud.com/api/numbers/validate");     
+      
+      request.Content = new StringContent(md5, Encoding.ASCII, "application/json");
+
+      var response = await this.client.SendAsync(request);
+
+      response.EnsureSuccessStatusCode();
+
+      using var responseStream = await response.Content.ReadAsStreamAsync();
+      var result = await JsonSerializer.DeserializeAsync
+          <InvestCloudResponse<string>>(responseStream);
+
+      Console.WriteLine("Validate result is {0}", result.Success);
+      this.EnsureSuccess(result);
+    }
+
+    private void EnsureSuccess<T>(InvestCloudResponse<T> response)
+    {
+      if (!response.Success) throw new Exception(response.Cause);
     }
   }
 

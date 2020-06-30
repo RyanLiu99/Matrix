@@ -13,7 +13,7 @@ namespace Matrix
 {
   class Program
   {
-    const int batchSize = 50;
+    const int batchSize = 150;
     const int arraySize = 1000;
     public static async Task Main(string[] args)
     {
@@ -87,7 +87,7 @@ namespace Matrix
 
       var endCalc = DateTime.Now;
       var timeTake = endCalc - start;
-      Console.WriteLine(" >>> Time take to calculate: {0}", timeTake);
+      Console.WriteLine(" >>> Time take to calculate: {0} seconds", timeTake.TotalSeconds);
 
       string md5 = CalculateMd5(result);
 

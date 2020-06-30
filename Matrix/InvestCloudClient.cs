@@ -16,6 +16,10 @@ namespace Matrix
     public InvestCloudClient(HttpClient client)
     {
       this.client = client;
+      
+      Console.WriteLine("http client timeout was " + client.Timeout);
+      client.Timeout = TimeSpan.FromSeconds(35);
+
       client.BaseAddress = new Uri("https://recruitment-test.investcloud.com/");        
     }
 

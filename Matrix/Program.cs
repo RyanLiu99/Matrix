@@ -18,17 +18,18 @@ namespace Matrix
     {
       var services = new ServiceCollection();
       services.AddHttpClient()
-              .AddHttpClient<InvestCloudClient>();
-      
+              .AddHttpClient<IInvestCloudClient, InvestCloudClient>()
+              .SetHandlerLifetime(TimeSpan.FromMinutes(5));      
 
       var containerBuilder = new ContainerBuilder();
       containerBuilder.Populate(services);
       var container = containerBuilder.Build();
 
       //var factory = container.Resolve<IHttpClientFactory>();
-      var client = container.Resolve<InvestCloudClient>();
+            
+      IInvestCloudClient client = container.Resolve<IInvestCloudClient>();
 
-      await CalculateMatrix(client, 10);      
+      await CalculateMatrix(client, 400);      
     }
 
     static async Task CalculateMatrix(IInvestCloudClient client, int n)
@@ -41,21 +42,33 @@ namespace Matrix
 
       var start = DateTime.Now;
 
-      for (int row = 0; row < n; row++)
-      {
-        for (int col = 0; col < n; col++)
-        {
-          var rowA = client.Numbers(DataSet.A, DataType.row, row);
-          var colB = client.Numbers(DataSet.B, DataType.col, col);
+      ParallelOptions optionOut = new ParallelOptions() { MaxDegreeOfParallelism = 40 };
+      ParallelOptions optionIn = new ParallelOptions() { MaxDegreeOfParallelism = 1 };
 
-          await Task.WhenAll(rowA, colB).ContinueWith(
-            (data) =>
-            {
-              result[row][col] = RowXCol(data.Result[0], data.Result[1]);
-            }
-          );
-        }
-      }
+      Parallel.For(0, n, optionOut, row =>
+     {
+       Parallel.For(0, n, optionIn, async col =>
+      {
+
+        var rowA = await client.Numbers(DataSet.A, DataType.row, row);
+        var colB = await client.Numbers(DataSet.B, DataType.col, col);
+
+        result[row][col] = RowXCol(rowA, colB);
+
+
+        //var rowA = client.Numbers(DataSet.A, DataType.row, row);
+        //var colB = client.Numbers(DataSet.B, DataType.col, col);
+
+        //await Task.WhenAll(rowA, colB).ContinueWith(
+        //  (data) =>
+        //  {
+        //    result[row][col] = RowXCol(data.Result[0], data.Result[1]);
+        //    Console.WriteLine($"Set {row} : {col}");
+        //  }
+        //);
+
+      });
+     });
 
       var endCalc = DateTime.Now;
       var timeTake = endCalc - start;

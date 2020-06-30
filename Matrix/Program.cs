@@ -3,9 +3,8 @@ using Autofac.Extensions.DependencyInjection;
 using Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
-using System.Net.Http;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,61 +13,82 @@ namespace Matrix
 {
   class Program
   {
+    const int batchSize = 50;
+    const int arraySize = 200;
     public static async Task Main(string[] args)
     {
+      
       var services = new ServiceCollection();
       services.AddHttpClient()
               .AddHttpClient<IInvestCloudClient, InvestCloudClient>()
-              .SetHandlerLifetime(TimeSpan.FromMinutes(5));      
+              .SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
       var containerBuilder = new ContainerBuilder();
       containerBuilder.Populate(services);
       var container = containerBuilder.Build();
 
-      //var factory = container.Resolve<IHttpClientFactory>();
-            
-      IInvestCloudClient client = container.Resolve<IInvestCloudClient>();
-
-      await CalculateMatrix(client, 400);      
+      using (IInvestCloudClient client = container.Resolve<IInvestCloudClient>())
+      {
+        await CalculateMatrix(client, 800);
+      }
     }
+
+    private static async Task<int[][]> GetDataFromServer(IInvestCloudClient client, int n, DataSet dataSet, DataType dataType)
+    {
+      var tasks = Partitioner.Create(0, n, batchSize).GetDynamicPartitions().AsParallel()
+        .SelectMany(x => Enumerable.Range(x.Item1, x.Item2 - x.Item1 + 1)
+       .Select(index => client.Numbers(dataSet, dataType, index)
+       ));
+
+      int[][] result = null;
+      await Task.WhenAll(tasks).ContinueWith(lines => result = lines.Result);
+      return result;
+    }
+
+
+    private static async Task<int[][]> GetARows(IInvestCloudClient client, int n)
+    {
+      return await GetDataFromServer(client, n, DataSet.A, DataType.row);
+      //int[][] result = null;
+      //var tasks = Enumerable.Range(0, n).Select(rowIndex => client.Numbers(DataSet.A, DataType.row, rowIndex));
+      //await Task.WhenAll(tasks).ContinueWith(rows => result = rows.Result);
+      //return result;
+    }
+
+    private static async Task<int[][]> GetBCols(IInvestCloudClient client, int n)
+    {
+      //return await GetDataFromServer(client, n, DataSet.B, DataType.col);
+      int[][] result = null;
+      var tasks = Enumerable.Range(0, n).Select(colIndex => client.Numbers(DataSet.B, DataType.col, colIndex));
+      await Task.WhenAll(tasks).ContinueWith(cols => result = cols.Result);
+      return result;
+    }
+
 
     static async Task CalculateMatrix(IInvestCloudClient client, int n)
     {
-      var responseInit = await client.InitMatrix(n);
 
-      //create an nxn result array, value inside does not matter, will be replaced
-      var result = Enumerable.Range(0, n)
-      .Select(x => Enumerable.Range(x * n, n).ToArray()).ToArray();
+      var responseInit = await client.InitMatrix(n);
 
       var start = DateTime.Now;
 
+      var aRows = await GetARows(client, n);
+      var bCols = await GetBCols(client, n);
+
+      var result = InitArray(n);
+
+     
+
       ParallelOptions optionOut = new ParallelOptions() { MaxDegreeOfParallelism = 40 };
-      ParallelOptions optionIn = new ParallelOptions() { MaxDegreeOfParallelism = 1 };
+      ParallelOptions optionIn = new ParallelOptions() { MaxDegreeOfParallelism = 40 };
 
       Parallel.For(0, n, optionOut, row =>
-     {
-       Parallel.For(0, n, optionIn, async col =>
       {
-
-        var rowA = await client.Numbers(DataSet.A, DataType.row, row);
-        var colB = await client.Numbers(DataSet.B, DataType.col, col);
-
-        result[row][col] = RowXCol(rowA, colB);
-
-
-        //var rowA = client.Numbers(DataSet.A, DataType.row, row);
-        //var colB = client.Numbers(DataSet.B, DataType.col, col);
-
-        //await Task.WhenAll(rowA, colB).ContinueWith(
-        //  (data) =>
-        //  {
-        //    result[row][col] = RowXCol(data.Result[0], data.Result[1]);
-        //    Console.WriteLine($"Set {row} : {col}");
-        //  }
-        //);
-
+        Parallel.For(0, n, optionIn, col =>
+        {
+          result[row][col] = RowXCol(aRows[row], bCols[col]);
+        });
       });
-     });
 
       var endCalc = DateTime.Now;
       var timeTake = endCalc - start;
@@ -81,17 +101,14 @@ namespace Matrix
       Console.WriteLine("Time take to MD5 and valiate: {0}", end - endCalc);
     }
 
-    private static string  CalculateMd5(int[][] array)
+
+    private static string CalculateMd5(int[][] array)
     {
       string str = ToString(array);
       var md5 = CreateMD5(str);
       return md5;
     }
 
-    private static string ToString(int[][] array)
-    {
-      return string.Concat(array.Select(ar => string.Concat(ar.Select(x => x.ToString()))));
-    }
 
     private static string CreateMD5(string input)
     {
@@ -121,6 +138,18 @@ namespace Matrix
       return result;
     }
 
+    //create n X n array
+    private static int[][] InitArray(int n)
+    {
+      //create an nxn result array, value inside does not matter, will be replaced
+      var result = Enumerable.Range(0, n)
+      .Select(x => Enumerable.Range(x * n, n).ToArray()).ToArray();
+      return result;
+    }
 
+    private static string ToString(int[][] array)
+    {
+      return string.Concat(array.Select(ar => string.Concat(ar.Select(x => x.ToString()))));
+    }
   }
 }

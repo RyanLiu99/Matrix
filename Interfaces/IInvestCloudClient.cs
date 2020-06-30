@@ -5,7 +5,7 @@ namespace Interfaces
 {
   public enum DataSet {A, B };
   public enum DataType { row, col };
-  public interface IInvestCloudClient
+  public interface IInvestCloudClient : IDisposable
   {
     Task<int> InitMatrix(int size);
 

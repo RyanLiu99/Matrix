@@ -15,13 +15,11 @@ namespace Matrix
 
     public InvestCloudClient(HttpClient client)
     {
-      this.client = client;
-      
-      Console.WriteLine("http client timeout was " + client.Timeout);
-      client.Timeout = TimeSpan.FromSeconds(35);
-
+      this.client = client;            
+      //client.Timeout = TimeSpan.FromSeconds(35);
       client.BaseAddress = new Uri("https://recruitment-test.investcloud.com/");        
     }
+
 
     public async Task<int> InitMatrix(int size)
     {
@@ -47,7 +45,7 @@ namespace Matrix
       var result = await JsonSerializer.DeserializeAsync
           <InvestCloudResponse<int[]>>(responseStream);
 
-      EnsureSuccess(result);
+      EnsureSuccess(result, idx);      
       return result.Value;
     }
 
@@ -70,9 +68,22 @@ namespace Matrix
       this.EnsureSuccess(result);
     }
 
-    private void EnsureSuccess<T>(InvestCloudResponse<T> response)
+    private void EnsureSuccess<T>(InvestCloudResponse<T> response, int? idx = null)
     {
-      if (!response.Success) throw new Exception(response.Cause);
+      if (!response.Success)
+      {
+        Console.WriteLine($"Falied {idx}: {response.Cause}");
+        throw new Exception(response.Cause);
+      }
+      else
+      {
+        Console.WriteLine($"Succeed {idx}" );
+      }
+    }
+
+    public void Dispose()
+    {
+      this.client?.Dispose();
     }
   }
 

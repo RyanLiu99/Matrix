@@ -11,9 +11,10 @@ using System.Threading.Tasks;
 
 namespace Matrix
 {
+  
   class Program
   {
-    const int batchSize = 150;
+    const int batchSize = 200;
     const int arraySize = 1000;
     public static async Task Main(string[] args)
     {
@@ -33,34 +34,16 @@ namespace Matrix
       }
     }
 
-    private static async Task<int[][]> GetDataFromServer(IInvestCloudClient client, int n, DataSet dataSet, DataType dataType)
-    {
+    
+    //It get two matrix first
+    //then multiple by rows x cols
 
-      var result = (int[][])Array.CreateInstance(typeof(int[]), n);
-      var ranges = Partitioner.Create(0, n - 1, batchSize).GetDynamicPartitions();
-
-      //do in batch mode avoid network error
-      foreach (var range in ranges)
-      {
-        var lines = Task.WhenAll(Enumerable.Range(range.Item1, range.Item2 - range.Item1 + 1)
-      .Select(index => client.Numbers(dataSet, dataType, index))).Result;
-
-        Array.Copy(lines, 0, result, range.Item1, range.Item2 - range.Item1 + 1);
-      }
-
-      return result;
-    }
-
-    private static async Task<int[][]> GetARows(IInvestCloudClient client, int n)
-    {
-      return await GetDataFromServer(client, n, DataSet.A, DataType.row);
-    }
-
-    private static async Task<int[][]> GetBCols(IInvestCloudClient client, int n)
-    {
-      return await GetDataFromServer(client, n, DataSet.B, DataType.col);
-    }
-
+    //It get tow martirxes one by one, sequencially 
+    //For the first matrix, it gets rows line by line; For 2nd matric, it gets cols line by line.
+    
+    //When it get line by line, it get 150 out 1000 lines at a time in paralla by using tasks
+    
+    //WHen it multiple by rows x cols, it uses ParallelOptions to do 40 calulations at a time.
 
     static async Task CalculateMatrix(IInvestCloudClient client, int n)
     {
@@ -69,8 +52,8 @@ namespace Matrix
 
       var start = DateTime.Now;
 
-      var aRows = await GetARows(client, n);
-      var bCols = await GetBCols(client, n);
+      int[][] aRows = await GetARows(client, n);
+      int[][] bCols = await GetBCols(client, n);
 
       var result = Init2DArray(n);
 
@@ -96,6 +79,35 @@ namespace Matrix
       Console.WriteLine("Time take to MD5 and valiate: {0}", end - endCalc);
     }
 
+
+    private static async Task<int[][]> GetDataFromServer(IInvestCloudClient client, int n, DataSet dataSet, DataType dataType)
+    {
+
+      var result = (int[][])Array.CreateInstance(typeof(int[]), n);
+      var ranges = Partitioner.Create(0, n - 1, batchSize).GetDynamicPartitions();
+
+      //do in batch mode avoid network error
+      //System.Net.Http.HttpRequestException: A connection attempt failed because the connected party did not properly respond after a period of time
+      foreach (var range in ranges)
+      {
+        int[][] lines = await Task.WhenAll(Enumerable.Range(range.Item1, range.Item2 - range.Item1 + 1)
+      .Select(index => client.Numbers(dataSet, dataType, index)));
+
+        Array.Copy(lines, 0, result, range.Item1, range.Item2 - range.Item1 + 1);
+      }
+
+      return result;
+    }
+
+    private static async Task<int[][]> GetARows(IInvestCloudClient client, int n)
+    {
+      return await GetDataFromServer(client, n, DataSet.A, DataType.row);
+    }
+
+    private static async Task<int[][]> GetBCols(IInvestCloudClient client, int n)
+    {
+      return await GetDataFromServer(client, n, DataSet.B, DataType.col);
+    }
 
     private static string CalculateMd5(int[][] array)
     {

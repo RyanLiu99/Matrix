@@ -14,7 +14,7 @@ namespace Matrix
   
   class Program
   {
-    const int batchSize = 200;
+    const int batchSize = 200; 
     const int arraySize = 1000;
     public static async Task Main(string[] args)
     {
@@ -79,7 +79,7 @@ namespace Matrix
       Console.WriteLine("Time take to MD5 and valiate: {0}", end - endCalc);
     }
 
-
+    // n- size of array n x n 
     private static async Task<int[][]> GetDataFromServer(IInvestCloudClient client, int n, DataSet dataSet, DataType dataType)
     {
 
@@ -88,6 +88,9 @@ namespace Matrix
 
       //do in batch mode avoid network error
       //System.Net.Http.HttpRequestException: A connection attempt failed because the connected party did not properly respond after a period of time
+
+      // use Enumerable.Range to run paralla
+      //Use await.WhenAll to limit parallism
       foreach (var range in ranges)
       {
         int[][] lines = await Task.WhenAll(Enumerable.Range(range.Item1, range.Item2 - range.Item1 + 1)

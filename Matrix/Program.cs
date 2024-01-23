@@ -20,7 +20,7 @@ namespace Matrix
     {
 
       var services = new ServiceCollection();
-      services.AddHttpClient()
+      services
               .AddHttpClient<IInvestCloudClient, InvestCloudClient>()
               .SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
